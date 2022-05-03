@@ -1,0 +1,5 @@
+{
+  "SqlServerProvider": {
+    "SevingConnectionString": "data source=localhost,1433;Database=sevingIntegratedTests;User Id=sa;Password=Lendsum12345"
+  }
+}

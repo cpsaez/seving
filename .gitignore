@@ -3,3 +3,9 @@
 ################################################################################
 
 /src/.vs/seving
+/src/seving.core/bin/Debug/net6.0
+/src/seving.core/obj
+/src/seving.core.integratedTests/bin/Debug/net6.0
+/src/seving.core.integratedTests/obj
+/src/seving.core.tests/bin/Debug/net6.0
+/src/seving.core.tests/obj
