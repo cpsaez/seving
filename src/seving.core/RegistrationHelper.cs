@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using seving.core.ModelIndex;
 using seving.core.Persistence;
 using seving.core.Persistence.SqlServer;
 using seving.core.UnitOfWork;
@@ -21,7 +22,7 @@ namespace seving.core
             serviceCollection.AddSingleton<IEventReader, EventReader>();
             serviceCollection.AddSingleton<IAggregateModelPersistence, AggregateModelPersistence>();
             serviceCollection.AddSingleton<IStreamRootFactory, StreamRootFactory>();
-
+            serviceCollection.AddSingleton<IIndexPersistenceProvider, IndexPersistenceProvider>();
         }
     }
 }

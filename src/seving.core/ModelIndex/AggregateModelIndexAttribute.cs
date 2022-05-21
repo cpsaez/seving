@@ -21,6 +21,7 @@ namespace seving.core.ModelIndex
         {
             this.ComposedKeyGroup = composedKeyGroup;
             this.ComposedOrder = composedOrder;
+            this.Constrain = false;
         }
 
         public AggregateModelIndexAttribute(bool constrain)

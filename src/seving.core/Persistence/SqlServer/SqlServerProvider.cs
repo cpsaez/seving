@@ -232,7 +232,7 @@ namespace seving.core.Persistence.SqlServer
 
             query = query.Replace("$TableName$", table);
             string startKey = string.IsNullOrWhiteSpace(batchQuery.LastKey) ? batchQuery.StartKey : batchQuery.LastKey;
-            string endKey = batchQuery.LastKey;
+            string endKey = batchQuery.EndKey;
 
             Func<SqlConnection, Task<IEnumerable<string>>> func = async (conn) =>
             {
@@ -313,97 +313,60 @@ namespace seving.core.Persistence.SqlServer
         }
 
         /// <summary>
-        /// Update or insert the specified item.
+        /// Update hte value in the current key or in the key related to the persistable item if the current key is null.
+        /// Use current key to replace the document key with the new one contained in the item.
         /// </summary>
-        /// <param name="item">The item.</param>
+        /// <param name="item"></param>
+        /// <param name="currentKey"></param>
         /// <returns></returns>
-        public async Task<PersistenceResultEnum> UpdateOrInsert(IPersistable item)
+        /// <exception cref="SevingException"></exception>
+        public async Task<PersistenceResultEnum> Update(IPersistable item, ComposedKey? currentKey = null)
         {
+
             string table = item.Partition;
             CreateIfNeeded(table);
+            string currentDocumentKey = currentKey?.Key ?? item.Keys.Key;
 
             Func<SqlConnection, Task<PersistenceResultEnum>> func;
-            if (string.IsNullOrWhiteSpace(item.Cas))
+            item.Cas = BuildNewCas;
+            var raw = this.serializer.Serialize(item);
+            var command = @"
+                update [seving].[$TableName$]
+                SET [DocumentKey]=@documentKey,
+                    [LastDateModified]=GETUTCDATE,
+                    [CAS]=@cas,
+                    [JsonCompressed]=COMPRESS(@jsonValue)
+                WHERE 
+                    [DocumentKey]=@currentDocumentKey";
+
+            if (!string.IsNullOrWhiteSpace(item.Cas))
             {
-                item.Cas = BuildNewCas;
-                var raw = this.serializer.Serialize(item);
-                var commandWithoutCas = @"
-                merge [seving].[$TableName$] as target
-                using (select @param1 as DocumentKey,@param2 as NewCas, COMPRESS(@param3) as JsonCompressed) as source
-                on (target.DocumentKey=Source.DocumentKey)
-                When Matched Then
-                    Update Set target.JsonCompressed=source.JsonCompressed, target.CAS=source.NewCas, target.LastDateModified=GETUTCDATE()
-                When not matched by target then
-                    insert (DocumentKey, CAS, CreatedDate, LastDateModified, JsonCompressed) values (source.DocumentKey, NewCas, GETUTCDATE(), GETUTCDATE(),JsonCompressed)
-                output
-	                $action, inserted.DocumentKey;
-                ".Replace("$TableName$", ValidateTableName(table));
-
-                func = async (conn) =>
-                {
-                    var queryResult = await conn.QueryAsync(commandWithoutCas,
-                   new
-                   {
-                       param1 = item.Keys.Key,
-                       param2 = item.Cas,
-                       param3 = raw
-                   },
-                   this.transaction
-                   );
-
-                    switch (queryResult.Count())
-                    {
-                        case 1:
-                            return PersistenceResultEnum.Success;
-                        case 0:
-                            return PersistenceResultEnum.DocumentOutOfDate;
-                        default:
-                            return PersistenceResultEnum.NonDefinedError;
-                    }
-                };
+                command = command + " and [CAS]=@oldCas";
             }
-            else
+
+            func = async (conn) =>
             {
-                var newCas = BuildNewCas;
-                var oldCas = item.Cas;
-                item.Cas = newCas;
-                var raw = this.serializer.Serialize(item);
-                var command = @"
-                merge [seving].[$TableName$] as target
-                using (select @param1 as DocumentKey,@param2 as CAS,@param3 as NewCas, COMPRESS(@param4) as JsonCompressed) as source
-                on (target.DocumentKey=Source.DocumentKey)
-                When Matched and target.CAS=source.CAS Then
-                    Update Set target.JsonCompressed=source.JsonCompressed, target.CAS=source.NewCas, target.LastDateModified=GETUTCDATE()
-                When not matched by target then
-                    insert (DocumentKey, CAS, CreatedDate, LastDateModified, JsonCompressed) values (source.DocumentKey, NewCas, GETUTCDATE(), GETUTCDATE(),JsonCompressed)
-                output
-	                $action, inserted.DocumentKey;
-                ".Replace("$TableName$", ValidateTableName(table));
+                var queryResult = await conn.QueryAsync(command,
+               new
+               {
+                   documentKey = item.Keys.Key,
+                   cas = item.Cas,
+                   jsonValue = raw,
+                   currentDocumentKey = currentDocumentKey
+               },
+               this.transaction
+               );
 
-                func = async (conn) =>
+                switch (queryResult.Count())
                 {
-                    var queryResult = await conn.QueryAsync(command,
-                                       new
-                                       {
-                                           param1 = item.Keys.Key,
-                                           param2 = oldCas,
-                                           param3 = newCas,
-                                           param4 = raw
-                                       },
-                                       this.transaction
-                                       );
-
-                    switch (queryResult.Count())
-                    {
-                        case 1:
-                            return PersistenceResultEnum.Success;
-                        case 0:
-                            return PersistenceResultEnum.DocumentOutOfDate;
-                        default:
-                            return PersistenceResultEnum.NonDefinedError;
-                    }
-                };
-            }
+                    case 1:
+                        return PersistenceResultEnum.Success;
+                    case 0:
+                        return PersistenceResultEnum.DocumentOutOfDate;
+                    default:
+                        return PersistenceResultEnum.NonDefinedError;
+                }
+            };
 
             try
             {

@@ -32,10 +32,5 @@ namespace seving.core.Persistence
             var result = await provider.GetByKeyPattern(query);
             return result.Items.FirstOrDefault();
         }
-
-        public async Task Save<T>(T item) where T : AggregateModelBase
-        {
-            await this.provider.Insert(item);
-        }
     }
 }

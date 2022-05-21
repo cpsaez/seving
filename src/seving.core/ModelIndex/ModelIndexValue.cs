@@ -15,7 +15,6 @@ namespace seving.core.ModelIndex
         }
         public string PropertyName { get; set; }
         public string Value { get; set; }
-
         public bool Constrain { get; set; }
     }
 }

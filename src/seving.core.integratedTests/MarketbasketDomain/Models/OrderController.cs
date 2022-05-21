@@ -8,10 +8,11 @@ using System.Threading.Tasks;
 
 namespace seving.core.integratedTests.MarketbasketDomain.Models
 {
-    public class OrderController : 
+    public class OrderController :
         StreamRootConsumerBase,
         IApplyEvent<ItemAdded>,
-        IApplyEvent<ItemRemoved>
+        IApplyEvent<ItemRemoved>,
+        IApplyEvent<BasketCleared>
     {
         public override int Priority => 1000;
 
@@ -30,6 +31,12 @@ namespace seving.core.integratedTests.MarketbasketDomain.Models
 
             OpenOrder openOrder = await GetModelOrCreate(streamRoot);
             openOrder.RemoveItem(@event.ItemId, @event.Quantity);
+        }
+
+        public async Task ApplyEvent(BasketCleared @event, StreamRoot streamRoot)
+        {
+            if (@event == null) throw new ArgumentNullException(nameof(@event));
+            await streamRoot.DestroyModel<OpenOrder>();
         }
 
         private async Task<OpenOrder> GetModelOrCreate(StreamRoot streamRoot)

@@ -23,6 +23,11 @@ namespace seving.core.Persistence
             this.Keys = new string[] { key1.ToString() };
         }
 
+        public ComposedKey(string key1)
+        {
+            this.Keys = new string[] { key1 };
+        }
+
         public ComposedKey(Guid key1, int key2)
         {
             this.Keys = new string[] { key1.ToString(), key2.ToString("D8", CultureInfo.InvariantCulture) };
@@ -33,9 +38,19 @@ namespace seving.core.Persistence
             this.Keys = new string[] { key1, key2 };
         }
 
+        public ComposedKey(string key1, Guid key2)
+        {
+            this.Keys = new string[] { key1, key2.ToString() };
+        }
+
         public ComposedKey(string key1, string key2, string key3)
         {
             this.Keys = new string[] { key1, key2, key3 };
+        }
+
+        public ComposedKey(string key1, string key2, Guid key3)
+        {
+            this.Keys = new string[] { key1, key2, key3.ToString() };
         }
 
         public ComposedKey(Guid key1, string key2, int key3) : this(key1)

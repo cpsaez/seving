@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace seving.core.integratedTests.MarketbasketDomain.Events
 {
-    public class BasketCleared
+    public class BasketCleared : StreamEvent
     {
     }
 }

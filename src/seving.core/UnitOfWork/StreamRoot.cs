@@ -1,4 +1,5 @@
 ﻿using Lendsum.Crosscutting.Common.Extensions;
+using seving.core.ModelIndex;
 using seving.core.Persistence;
 using seving.core.Utils;
 using seving.core.Utils.Extensions;
@@ -12,22 +13,28 @@ namespace seving.core.UnitOfWork
 {
     public class StreamRoot
     {
+        private AggregateModelIndexInspector aggIndexInspector;
         private IEventReader eventReader;
+        private IIndexPersistenceProvider indexPersistenceProvider;
         private IStreamRootConsumer[] consumers;
         private IAggregateModelPersistence aggPersistence;
 
         private bool initialized = false;
         private List<StreamEvent> newEvents = new List<StreamEvent>();
-        private Dictionary<Type, Dictionary<string, AggregateModelBase?>> loadedModels;
-        private Dictionary<Type, Dictionary<string, AggregateModelBase>> modifiedModels;
+        private FromToTypes models;
 
-        public StreamRoot(IEventReader eventReader, IAggregateModelPersistence aggPersistence, IEnumerable<IStreamRootConsumer> consumers, Guid streamRootUid)
+        public StreamRoot(
+            IEventReader eventReader, 
+            IAggregateModelPersistence aggPersistence,
+            IIndexPersistenceProvider indexPersistenceProvider,
+            IEnumerable<IStreamRootConsumer> consumers, Guid streamRootUid)
         {
+            this.aggIndexInspector = new AggregateModelIndexInspector();
             this.eventReader = eventReader ?? throw new ArgumentNullException(nameof(eventReader));
+            this.indexPersistenceProvider = indexPersistenceProvider;
             this.consumers = consumers.OrderBy(x => x.Priority).ToArray();
             this.aggPersistence = aggPersistence ?? throw new ArgumentNullException(nameof(aggPersistence));
-            this.loadedModels = new Dictionary<Type, Dictionary<string, AggregateModelBase?>>();
-            this.modifiedModels = new Dictionary<Type, Dictionary<string, AggregateModelBase>>();
+            this.models = new FromToTypes();
             this.Uid = streamRootUid;
         }
 
@@ -53,44 +60,40 @@ namespace seving.core.UnitOfWork
             await Initialize();
 
             if (instanceName == null) instanceName = string.Empty;
-            string key = instanceName;
 
-            var typedModifiedModel = modifiedModels.GetOrAdd(typeof(T), () => new Dictionary<string, AggregateModelBase>());
-            if (typedModifiedModel.ContainsKey(key))
-            {
-                var result = (T)typedModifiedModel[key];
-                return await Task.FromResult(result);
-            }
+            var target = models.GetByType<T>().GetByInstanceName(instanceName);
+            if (target.ToSet == true) return target.To as T;
 
-            var typedLoadedModel = loadedModels.GetOrAdd(typeof(T), () => new Dictionary<string, AggregateModelBase?>());
-            if (typedLoadedModel.ContainsKey(key))
+            // check if the value has been loaded from db
+            if (target.FromSet == true)
             {
-                var alreadyLoaded = typedLoadedModel[key];
-                if (alreadyLoaded != null)
+                if (target.From != null)
                 {
-                    typedModifiedModel.Add(key, Cloner.Clone<T>(alreadyLoaded));
+                    models.SetTo<T>(Cloner.Clone<T>(target.From), instanceName);
                 }
 
-                return await Task.FromResult((T)typedModifiedModel[key]);
+                return target.To as T;
             }
 
+            // we need to upload first from db
+
             // load from DB
-            var fromDb = await aggPersistence.GetLast(new T() { StreamUid = this.Uid, InstanceName = instanceName }, this.Version);
+            T? fromDb = await aggPersistence.GetLast(new T() { StreamUid = this.Uid, InstanceName = instanceName }, this.Version);
 
 
             if (fromDb != null)
             {
                 fromDb.Version = this.Version;
-                typedLoadedModel.Add(key, fromDb);
-                var result = Cloner.Clone<T>(fromDb);
-                typedModifiedModel.Add(key, result);
-                return result;
+                models.SetFrom<T>(fromDb, instanceName);
+                models.SetTo<T>(Cloner.Clone<T>(fromDb), instanceName);
             }
             else
             {
-                typedLoadedModel.Add(key, fromDb);
-                return fromDb;
+                models.SetFrom<T>(null, instanceName);
+                models.SetTo<T>(null, instanceName);
             }
+
+            return target.To as T;
         }
 
         public async Task<T> InitModel<T>(string? instanceName = null) where T : AggregateModelBase, new()
@@ -98,74 +101,79 @@ namespace seving.core.UnitOfWork
             await Initialize();
 
             if (instanceName == null) instanceName = string.Empty;
+
+            var targets = models.GetByType<T>().GetByInstanceName(instanceName);
+            if ((targets.ToSet && targets.To != null) || (targets.FromSet && targets.From != null))
+                throw new ConcurrencyException(S.Invariant($"The model {typeof(T).Name}.{instanceName} is already initializedd"));
+
             T result = new T();
             result.Version = this.Version;
-            var typedModifiedModel = modifiedModels.GetOrAdd(typeof(T), () => new Dictionary<string, AggregateModelBase>());
-            typedModifiedModel.AddOrReplace(instanceName, result);
+            result.StreamUid = this.Uid;
+            models.SetTo<T>(result, instanceName);
             return result;
         }
 
-        public async Task<IPersistenceProvider> Save(IPersistenceProvider persistenceProvider)
+        public async Task DestroyModel<T>(string? instanceName = null) where T : AggregateModelBase, new()
         {
-            List<Task<PersistenceResultEnum>> tasks = new List<Task<PersistenceResultEnum>>();
+            if (instanceName == null) instanceName = string.Empty;
+            await Initialize();
+
+            // force the load of the model, we need it to know what key we have to remove.
+            await this.GetModel<T>(instanceName);
+
+            models.SetTo<T>(null, instanceName); 
+        }
+
+        public async Task Save(IPersistenceProvider persistenceProvider)
+        {
+            // save events
             foreach (var @event in this.newEvents)
             {
-                tasks.Add(persistenceProvider.Insert(@event));
+                var result = await persistenceProvider.Insert(@event);
+                CheckResult(result, S.Invariant($"error saving  event {@event.Keys.Key}"));
+
             }
 
-            foreach (var type in this.modifiedModels.Keys)
+            // save models
+            foreach (var modelType in this.models.GetAll())
             {
-                foreach (var key in this.modifiedModels[type].Keys)
+                foreach (var instanceName in this.models.GetByType(modelType).GetAll())
                 {
-                    var modifiedModel = this.modifiedModels[type][key];
-                    modifiedModel.Version = this.Version;
-                    // compare if the model is a modification of the original to save it.
-                    bool save = false;
-                    if (this.loadedModels.ContainsKey(type) && this.loadedModels[type].ContainsKey(key))
+                    var target = this.models.GetByType(modelType).GetByInstanceName(instanceName);
+
+                    if (target.From != null && target.To != null)
                     {
-                        var original = this.loadedModels[type][key];
-                        if (original != null)
+                        target.To.Version = this.Version;
+                        target.From.Version = this.Version;
+                        if (!Cloner.AreEquals(target.From, target.To))
                         {
-                            original.Version = this.Version;
-                            if (Cloner.AreEquals(original, modifiedModel))
-                            {
-                                save = true;
-                            }
+                            var result = await persistenceProvider.Insert(target.To);
+                            CheckResult(result, S.Invariant($"error saving {target.To.Keys.Key}"));
                         }
                     }
-                    else
+                    else if (target.From == null && target.To != null)
                     {
-                        save = true;
+                        var result = await persistenceProvider.Insert(target.To);
+                        CheckResult(result, S.Invariant($"error saving {target.To.Keys.Key}"));
+                    }
+                    else if (target.From != null && target.To == null)
+                    {
+                        var result = await persistenceProvider.Delete(target.From);
+                        CheckResult(result, S.Invariant($"error deleting model {target.From.Keys.Key}"));
                     }
 
-                    if (save)
-                    {
-                        tasks.Add(persistenceProvider.Insert(modifiedModel));
-                    }
+                    // update now the indexes
+                    var indexChanges= aggIndexInspector.GetChanges(target.From, target.To);
+                    await this.indexPersistenceProvider.Persist(modelType, this.Uid, instanceName, indexChanges, persistenceProvider);
                 }
             }
+        }
 
-            if (tasks.Count == 0)
-            {
-                return persistenceProvider;
-            }
-
-            var result = await Task.WhenAll(tasks);
-            if (result.Any(x => x != PersistenceResultEnum.Success))
-            {
-                if (result.Any(x => x == PersistenceResultEnum.KeyAlreadyExist))
-                {
-                    throw new ConcurrencyException("Error saving a persistable item because his key already exist in commit")
-                        .AddStreamRootUid(this.Uid)
-                        .AddStreamRootVersion(this.Version);
-                }
-
-                throw new SevingException("Some of the inserts cannot be procuded")
-                        .AddStreamRootUid(this.Uid)
-                        .AddStreamRootVersion(this.Version); ;
-            }
-
-            return persistenceProvider;
+        private static void CheckResult(PersistenceResultEnum result, string? errorMessage)
+        {
+            if (result == PersistenceResultEnum.Success) return;
+            if (result == PersistenceResultEnum.KeyAlreadyExist) throw new ConcurrencyException(errorMessage);
+            throw new SevingException(errorMessage ?? "Error saving something");
         }
 
         private async Task Initialize()

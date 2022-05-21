@@ -16,6 +16,7 @@ namespace seving.core.Persistence
         Task Commit();
         Task<PersistenceResultEnum> Delete(IEnumerable<IPersistable> items);
         Task<PersistenceResultEnum> Delete(IPersistable item);
+        Task<PersistenceResultEnum> Update(IPersistable item, ComposedKey? currentKey = null);
         Task<BatchQuery<T>> GetByKeyPattern<T>(BatchQuery<T> batchQuery) where T : IPersistable;
         Task<BatchQuery<T>> GetByKeyPattern<T>(IPersistable startItem, IPersistable endItem, int? limit = null, bool includeKeys = false, bool asc = true) where T : IPersistable;
         Task<bool> GetLock(string itemName, int maxExecutingInSeconds);
@@ -25,6 +26,6 @@ namespace seving.core.Persistence
         Task ReleaseLock(string itemName);
         Task<ulong> ReserveCounter(string key);
         Task Rollback();
-        Task<PersistenceResultEnum> UpdateOrInsert(IPersistable item);
+
     }
 }

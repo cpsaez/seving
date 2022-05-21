@@ -123,7 +123,15 @@ namespace seving.core.ModelIndex
                 var toItem = toInfo.Where(x => x.PropertyName == item.PropertyName).First();
                 if (toItem.Value!=item.Value)
                 {
-                    result.Add(new ModelIndexComparisonResult(item, toItem, ModelIndexOperationEnum.UpdateOrInsert));
+                    ModelIndexOperationEnum operation = ModelIndexOperationEnum.UpdateOrInsert;
+
+                    // we dont index empty values so this situation (from has value and to is empty, is detected as a deletion)
+                    if (string.IsNullOrWhiteSpace(toItem.Value))
+                    {
+                        operation=ModelIndexOperationEnum.Delete;
+                    }
+
+                    result.Add(new ModelIndexComparisonResult(item, toItem, operation));
                 }
             }
 
