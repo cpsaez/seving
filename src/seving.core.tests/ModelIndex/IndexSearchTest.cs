@@ -14,8 +14,8 @@ namespace seving.core.tests.ModelIndex
         [TestMethod]
         public void ExpressionEvaluatorTest()
         {
-            IndexSearch search= new IndexSearch();
-            search.GetExactly<ModelFake>(x => x.Id, "bla");
+            //IndexSearch search= new IndexSearch();
+            //search.GetExactly<ModelFake>(x => x.Id, "bla");
         }
     }
 }

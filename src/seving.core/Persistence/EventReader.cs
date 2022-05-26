@@ -18,20 +18,8 @@ namespace seving.core.Persistence
 
         public async Task<StreamEvent?> ReadLastEvent(Guid streamRootUid)
         {
-            var startKey = BuildEvent(streamRootUid, 0);
-            var endKey = BuildEvent(streamRootUid, StreamEvent.BIGGEST_VERSION);
-
-            BatchQuery<StreamEvent> query = new BatchQuery<StreamEvent>()
-            {
-                StartKey = startKey.Keys.Key,
-                EndKey = endKey.Keys.Key,
-                Partition = startKey.Partition,
-                Limit = 1,
-                Ascendent = false,
-                IncludeKeys = true
-            };
-
-            var result = await this.provider.GetByKeyPattern<StreamEvent>(query);
+            var batchQuery = GetBatchQueryForLastEvent(streamRootUid);
+            var result = await this.provider.GetByKeyPattern<StreamEvent>(batchQuery);
             return result.Items.FirstOrDefault();
         }
 
@@ -41,6 +29,18 @@ namespace seving.core.Persistence
             streamEvent.StreamUid = streamRootUid;
             streamEvent.Version = version;
             return streamEvent;
+        }
+
+        public BatchQuery<StreamEvent> GetBatchQueryForLastEvent(Guid streamRootUid)
+        {
+            var query = new BatchQuery<StreamEvent>();
+            query.Partition = new StreamEvent().Partition;
+            query.ConstantSegment = new ComposedKey(streamRootUid, string.Empty).Key ?? string.Empty;
+            query.StartKey = string.Empty;
+            query.EndKey = string.Empty;
+            query.Ascendent = false;
+            query.Limit = 1;
+            return query;
         }
     }
 }

@@ -24,11 +24,9 @@ namespace seving.core.Persistence
                 Limit = 1,
                 IncludeKeys = true,
                 Partition = prototype.Partition,
-                StartKey = prototype.Keys.Key,
+                ConstantSegment = new ComposedKey(prototype.StreamUid, prototype.InstanceName, string.Empty).Key
             };
-            prototype.Version = maxVersion;
-            query.EndKey = prototype.Keys.Key;
-
+            
             var result = await provider.GetByKeyPattern(query);
             return result.Items.FirstOrDefault();
         }

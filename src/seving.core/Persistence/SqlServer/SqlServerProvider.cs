@@ -187,30 +187,6 @@ namespace seving.core.Persistence.SqlServer
             return result;
         }
 
-        public async Task<BatchQuery<T>> GetByKeyPattern<T>(IPersistable startItem, IPersistable endItem, int? limit = null, bool includeKeys = false, bool asc = true) where T : IPersistable
-        {
-            string table = startItem.Partition;
-            if (table != endItem.Partition)
-            {
-                throw new ArgumentException("The startItem and endItem must have the same partition");
-            }
-
-            BatchQuery<T> result = new BatchQuery<T>()
-            {
-                Ascendent = asc,
-                IncludeKeys = includeKeys,
-                Limit = limit,
-                EndKey = endItem.Keys.Key,
-                StartKey = startItem.Keys.Key,
-                LastKey = String.Empty,
-                Items = Enumerable.Empty<T>(),
-                Partition = table
-            };
-
-            result = await this.GetByKeyPattern(result);
-            return result;
-        }
-
         public async Task<BatchQuery<T>> GetByKeyPattern<T>(BatchQuery<T> batchQuery) where T : IPersistable
         {
             string table = batchQuery.Partition;
@@ -224,19 +200,33 @@ namespace seving.core.Persistence.SqlServer
             if (batchQuery.Limit != null) query = query + S.Invariant($"TOP {batchQuery.Limit}");
             query = query + @" JsonDecompressed
                 from  [seving].[$TableName$]
-                where DocumentKey" + moreThan + "@param1 and DocumentKey" + lessThan + "@param2";
+                where DocumentKey like @likeExpression ";
+
+            if (!string.IsNullOrWhiteSpace(batchQuery.StartKey))
+            {
+                query = query + " and DocumentKey " + moreThan + "@startKey";
+            }
+
+            if (!string.IsNullOrWhiteSpace(batchQuery.EndKey))
+            {
+                query = query + " and DocumentKey " + lessThan + " @endKey";
+            }
+
             if (batchQuery.Ascendent == false)
             {
                 query = query + " order by DocumentKey Desc";
             }
 
             query = query.Replace("$TableName$", table);
-            string startKey = string.IsNullOrWhiteSpace(batchQuery.LastKey) ? batchQuery.StartKey : batchQuery.LastKey;
-            string endKey = batchQuery.EndKey;
+            var likeExpression = batchQuery.ConstantSegment + "%";
 
             Func<SqlConnection, Task<IEnumerable<string>>> func = async (conn) =>
             {
-                var result = await conn.QueryAsync<string>(query, new { param1 = startKey, param2 = endKey }, this.transaction);
+                var result = await conn.QueryAsync<string>(query, 
+                    new { likeExpression = likeExpression,
+                          startKey = batchQuery.StartKey,
+                          endKey = batchQuery.EndKey}
+                    , this.transaction);
                 return result;
             };
 
@@ -499,7 +489,7 @@ namespace seving.core.Persistence.SqlServer
             using (var conn = this.GetNewConnection().Result)
             {
 
-                var tableCount = conn.ExecuteScalar<int>("select count(TABLE_NAME) from information_schema.tables where TABLE_NAME='Lockers'");
+                var tableCount = conn.ExecuteScalar<int>("select count(TABLE_NAME) from [INFORMATION_SCHEMA].[TABLES] where TABLE_NAME='Lockers'");
                 if (tableCount == 0)
                 {
                     try
@@ -715,8 +705,7 @@ namespace seving.core.Persistence.SqlServer
             CREATE SEQUENCE seving.%name% start with 1 increment by 1;";
 
         private string _existsTable = @" select count (*) 
-                                        from information_schema.tables 
-                                        where table_name = @table";
+                                        from [INFORMATION_SCHEMA].[TABLES] where TABLE_NAME = @table";
         private string BuildNewCas => this.random.Next(0, 9999999).ToString(CultureInfo.InvariantCulture);
     }
 }

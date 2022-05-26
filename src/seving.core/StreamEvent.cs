@@ -15,6 +15,11 @@ namespace seving.core
     {
         internal const int BIGGEST_VERSION=99999999;
 
+        public StreamEvent()
+        {
+            this.When = DateTime.UtcNow;
+        }
+
         /// <summary>
         /// Gets or sets the date when this events is generated for the first time.
         /// </summary>
@@ -44,5 +49,7 @@ namespace seving.core
         public ComposedKey Keys => new ComposedKey(StreamUid, Version);
 
         #endregion
+
+
     }
 }

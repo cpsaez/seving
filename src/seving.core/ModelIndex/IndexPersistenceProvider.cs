@@ -9,6 +9,12 @@ namespace seving.core.ModelIndex
 {
     public class IndexPersistenceProvider : IIndexPersistenceProvider
     {
+        
+        //public async Task<PersistableIndexRow> GetExact(PersistableIndexRow row, IPersistenceProvider provider)
+        //{
+        //    provider.g
+        //}
+
         public async Task Persist(Type modelType,Guid streamRootUid, string instanceName, ModelIndexComparisonResult comparisonResult, IPersistenceProvider persistenceProvider)
         {
             if (modelType == null) throw new ArgumentNullException(nameof(modelType));
@@ -24,7 +30,8 @@ namespace seving.core.ModelIndex
                     StreamRootUid = streamRootUid,
                     InstanceName = instanceName,
                     SearchableProperty = comparisonResult.Old.PropertyName,
-                    SearchableValue = comparisonResult.Old.Value
+                    SearchableValue = comparisonResult.Old.Value,
+                    Constrain = comparisonResult.Old.Constrain,
                 };
 
                 var result = await persistenceProvider.Delete(toDelete);
@@ -38,6 +45,8 @@ namespace seving.core.ModelIndex
                 PersistableIndexRow toInsert = new PersistableIndexRow()
                 {
                     ModelIndexedName = modelName,
+                    StreamRootUid = streamRootUid,
+                    InstanceName = instanceName,
                     SearchableProperty = comparisonResult.New.PropertyName,
                     SearchableValue = comparisonResult.New.Value,
                     Constrain = comparisonResult.New.Constrain
@@ -55,6 +64,8 @@ namespace seving.core.ModelIndex
                 PersistableIndexRow old = new PersistableIndexRow()
                 {
                     ModelIndexedName = modelName,
+                    StreamRootUid = streamRootUid,
+                    InstanceName = instanceName,
                     SearchableProperty = comparisonResult.Old.PropertyName,
                     SearchableValue = comparisonResult.Old.Value,
                     Constrain = comparisonResult.Old.Constrain
@@ -64,6 +75,8 @@ namespace seving.core.ModelIndex
                 PersistableIndexRow toUpdate = new PersistableIndexRow()
                 {
                     ModelIndexedName = modelName,
+                    StreamRootUid = streamRootUid,
+                    InstanceName = instanceName,
                     SearchableProperty = comparisonResult.New.PropertyName,
                     SearchableValue = comparisonResult.New.Value,
                     Constrain = comparisonResult.New.Constrain

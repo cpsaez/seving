@@ -12,19 +12,19 @@ namespace seving.core.Persistence
         {
             this.Items = Enumerable.Empty<T>();
             this.StartKey = String.Empty;
-            this.LastKey = String.Empty;
             this.EndKey = String.Empty;
             this.Partition = String.Empty;
             this.Limit = null;
             this.IncludeKeys = false;
             this.Ascendent = true;
+            this.ConstantSegment = String.Empty;
         }
 
         public IEnumerable<T> Items { get; set; }
         public string StartKey { get; set; }
-        public string LastKey { get; set; }
         public string EndKey { get; set; }
         public string Partition { get; set; }
+        public string ConstantSegment { get; set; }
         public int? Limit { get; set; }
         public bool IncludeKeys { get; set; }
         public bool Ascendent { get; set; }
@@ -44,14 +44,13 @@ namespace seving.core.Persistence
                 IncludeKeys = this.IncludeKeys,
                 Limit = this.Limit,
                 EndKey = this.EndKey,
-                StartKey = this.StartKey,
-                LastKey = lastKey,
+                StartKey = lastKey,
                 Items = items,
+                ConstantSegment = this.ConstantSegment,
                 Partition = this.Partition
             };
 
             return result;
         }
-
     }
 }

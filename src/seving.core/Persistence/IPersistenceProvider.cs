@@ -18,7 +18,6 @@ namespace seving.core.Persistence
         Task<PersistenceResultEnum> Delete(IPersistable item);
         Task<PersistenceResultEnum> Update(IPersistable item, ComposedKey? currentKey = null);
         Task<BatchQuery<T>> GetByKeyPattern<T>(BatchQuery<T> batchQuery) where T : IPersistable;
-        Task<BatchQuery<T>> GetByKeyPattern<T>(IPersistable startItem, IPersistable endItem, int? limit = null, bool includeKeys = false, bool asc = true) where T : IPersistable;
         Task<bool> GetLock(string itemName, int maxExecutingInSeconds);
         Task<T?> GetValue<T>(IPersistable key) where T : class;
         Task<IEnumerable<T>> GetValues<T>(IEnumerable<IPersistable> keys) where T : class;
