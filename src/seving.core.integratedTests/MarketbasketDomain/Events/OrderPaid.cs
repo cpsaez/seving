@@ -10,6 +10,6 @@ namespace seving.core.integratedTests.MarketbasketDomain.Events
     public class OrderPaid : StreamEvent
     {
         public PaymentInfo? PaymentInfo { get; set; }
-        public Guid OrderGuid { get; set; }
+        public Guid ReferenceCode { get; set; }
     }
 }
