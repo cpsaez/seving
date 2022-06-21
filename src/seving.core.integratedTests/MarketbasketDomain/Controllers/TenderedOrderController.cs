@@ -22,7 +22,7 @@ namespace seving.core.integratedTests.MarketbasketDomain.Models
             var openOrder= await streamRoot.GetModel<OpenOrder>();
             if (openOrder == null) throw new MarketbasketException("The order has to have at least some items");
 
-            var tenderedOrder=await streamRoot.InitModel<TenderedOrder>(@event.OrderGuid.ToString());
+            var tenderedOrder=await streamRoot.InitModel<TenderedOrder>(@event.ReferenceCode.ToString());
             tenderedOrder.PaymentInfo= @event.PaymentInfo;
             tenderedOrder.SetItems(openOrder.Items);
             await streamRoot.DestroyModel<OpenOrder>();
