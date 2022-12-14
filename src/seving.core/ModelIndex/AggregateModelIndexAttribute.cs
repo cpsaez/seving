@@ -9,19 +9,10 @@ namespace seving.core.ModelIndex
     [System.AttributeUsage(System.AttributeTargets.Property, AllowMultiple =true)]  // multiuse attribute  
     public class AggregateModelIndexAttribute : System.Attribute
     {
-        public string ComposedKeyGroup { get; } = string.Empty;
-        public int ComposedOrder { get; }
         public bool Constrain { get; } = false;
 
         public AggregateModelIndexAttribute()
         {
-        }
-
-        public AggregateModelIndexAttribute(string composedKeyGroup, int composedOrder)
-        {
-            this.ComposedKeyGroup = composedKeyGroup;
-            this.ComposedOrder = composedOrder;
-            this.Constrain = false;
         }
 
         public AggregateModelIndexAttribute(bool constrain)

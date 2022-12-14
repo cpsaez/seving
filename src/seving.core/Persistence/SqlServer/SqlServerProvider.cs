@@ -10,6 +10,7 @@ using System.Configuration;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading;
 
@@ -106,19 +107,13 @@ namespace seving.core.Persistence.SqlServer
 
             var tables = await this.RunQuery(getTables);
 
-            Func<SqlConnection, Task<PersistenceResultEnum>> func = async (conn) =>
+            using (var conn = await this.GetNewConnection())
             {
-                List<Task> tasks = new List<Task>();
                 foreach (var table in tables)
                 {
-                    tasks.Add(conn.ExecuteAsync("DELETE FROM [seving].[" + table + "]", null, this.transaction));
+                    await conn.ExecuteAsync("DELETE FROM [seving].[" + table + "]");
                 }
-
-                await Task.WhenAll(tasks.ToArray());
-                return PersistenceResultEnum.Success;
-            };
-
-            await this.RunQuery(func);
+            }
         }
 
         /// <summary>
@@ -222,10 +217,13 @@ namespace seving.core.Persistence.SqlServer
 
             Func<SqlConnection, Task<IEnumerable<string>>> func = async (conn) =>
             {
-                var result = await conn.QueryAsync<string>(query, 
-                    new { likeExpression = likeExpression,
-                          startKey = batchQuery.StartKey,
-                          endKey = batchQuery.EndKey}
+                var result = await conn.QueryAsync<string>(query,
+                    new
+                    {
+                        likeExpression = likeExpression,
+                        startKey = batchQuery.StartKey,
+                        endKey = batchQuery.EndKey
+                    }
                     , this.transaction);
                 return result;
             };
@@ -318,36 +316,60 @@ namespace seving.core.Persistence.SqlServer
             string currentDocumentKey = currentKey?.Key ?? item.Keys.Key;
 
             Func<SqlConnection, Task<PersistenceResultEnum>> func;
+
+            string? oldCAs = item.Cas;
+            bool checkCas = !string.IsNullOrWhiteSpace(oldCAs);
+
             item.Cas = BuildNewCas;
             var raw = this.serializer.Serialize(item);
             var command = @"
                 update [seving].[$TableName$]
                 SET [DocumentKey]=@documentKey,
-                    [LastDateModified]=GETUTCDATE,
+                    [LastDateModified]=GETUTCDATE(),
                     [CAS]=@cas,
                     [JsonCompressed]=COMPRESS(@jsonValue)
                 WHERE 
-                    [DocumentKey]=@currentDocumentKey";
+                    [DocumentKey]=@currentDocumentKey".Replace("$TableName$", ValidateTableName(table));
 
-            if (!string.IsNullOrWhiteSpace(item.Cas))
+
+            if (checkCas)
             {
                 command = command + " and [CAS]=@oldCas";
+
             }
 
             func = async (conn) =>
             {
-                var queryResult = await conn.QueryAsync(command,
-               new
-               {
-                   documentKey = item.Keys.Key,
-                   cas = item.Cas,
-                   jsonValue = raw,
-                   currentDocumentKey = currentDocumentKey
-               },
-               this.transaction
-               );
-
-                switch (queryResult.Count())
+                int updateResult = 0;
+                if (!checkCas)
+                {
+                    updateResult = await conn.ExecuteAsync(command,
+                    new
+                    {
+                        documentKey = item.Keys.Key,
+                        cas = item.Cas,
+                        jsonValue = raw,
+                        currentDocumentKey = currentDocumentKey
+                    },
+                    this.transaction
+                    );
+                }
+                else
+                {
+                    updateResult = await conn.ExecuteAsync(command,
+                    new
+                    {
+                        documentKey = item.Keys.Key,
+                        cas = item.Cas,
+                        jsonValue = raw,
+                        currentDocumentKey = currentDocumentKey,
+                        oldCas= oldCAs
+                    },
+                    this.transaction
+                    );
+                }
+               
+                switch (updateResult)
                 {
                     case 1:
                         return PersistenceResultEnum.Success;

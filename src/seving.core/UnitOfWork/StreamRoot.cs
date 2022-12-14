@@ -44,6 +44,8 @@ namespace seving.core.UnitOfWork
         public async Task Handle(StreamEvent @event)
         {
             await Initialize();
+            if (@event.StreamUid!=this.Uid) { throw new SevingException("The streamroot can only process events from the same streamrootuid"); }
+
             @event.Version = this.Version + 1;
             foreach (var consumer in consumers)
             {

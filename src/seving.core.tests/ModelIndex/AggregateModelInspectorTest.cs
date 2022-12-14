@@ -22,7 +22,7 @@ namespace seving.core.tests.ModelIndex
         [TestMethod]
         public void GetPropertiesTest()
         {
-            var result=inspector.GetIndexInfoFromType<ModelFake>();
+            var result=inspector.GetIndexInfoFromType(typeof(ModelFake));
             Assert.AreEqual(3, result.Count());
             var idInfo = result.FirstOrDefault(x => x?.Property?.Name == "Id");
             Assert.IsNotNull(idInfo);
@@ -31,8 +31,6 @@ namespace seving.core.tests.ModelIndex
             var address1Info= result.FirstOrDefault(x => x?.Property?.Name == "Address1");
             Assert.IsNotNull(address1Info);
             Assert.AreEqual(false, address1Info.Constrain);
-            Assert.AreEqual("address", address1Info.ComposedKeyGroup);
-            Assert.AreEqual(1, address1Info.ComposedOrder);
         }
 
         [TestMethod]
@@ -45,9 +43,9 @@ namespace seving.core.tests.ModelIndex
 
             var result=inspector.GetIndexValuesFromModel(fake);
             Assert.IsNotNull(result);
-            Assert.AreEqual(2, result.Count());
+            Assert.AreEqual(3, result.Count());
             Assert.AreEqual(fake.Id, result.First().Value);
-            Assert.AreEqual(fake.Address1+fake.Address2, result.Last().Value);
+            Assert.AreEqual(fake.Address2, result.Last().Value);
         }
         
         [TestMethod]
@@ -96,7 +94,7 @@ namespace seving.core.tests.ModelIndex
             fake2.Address2 = "address2Value";
             fake2.Id = "idFake2";
             var result = inspector.GetChanges(fake1, fake2);
-            Assert.AreEqual(result.Count(), 2);
+            Assert.AreEqual(result.Count(), 3);
             Assert.IsTrue(result.All(x => x.Operation == ModelIndexOperationEnum.UpdateOrInsert));
 
             // check the item in the result is ok
@@ -118,7 +116,7 @@ namespace seving.core.tests.ModelIndex
             fake2.Address2 = "address2Value";
             fake2.Id = ""; // NO id here, to this index must be removed.
             var result = inspector.GetChanges(fake1, fake2);
-            Assert.AreEqual(result.Count(), 2);
+            Assert.AreEqual(result.Count(), 3);
             Assert.AreEqual(result.First().Operation, ModelIndexOperationEnum.Delete);
         }
     }
@@ -133,10 +131,10 @@ namespace seving.core.tests.ModelIndex
         [AggregateModelIndex(true)]
         public string Id { get; set; }
 
-        [AggregateModelIndex("address", 1)]
+        [AggregateModelIndex()]
         public string? Address1 { get; set; }
 
-        [AggregateModelIndex("address", 2)]
+        [AggregateModelIndex()]
         public string? Address2 { get; set; }
     }
 }

@@ -17,9 +17,5 @@ namespace seving.core.ModelIndex
         public PropertyInfo Property { get; set; }
 
         public bool Constrain { get; set; }
-
-        public string? ComposedKeyGroup { get; set; }
-
-        public int ComposedOrder { get; set; }
     }
 }

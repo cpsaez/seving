@@ -1,4 +1,5 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.VisualStudio.TestPlatform.Common.Utilities;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using seving.core.ModelIndex;
 using System;
 using System.Collections.Generic;
@@ -15,7 +16,7 @@ namespace seving.core.tests.ModelIndex
         public void ExpressionEvaluatorTest()
         {
             //IndexSearch search= new IndexSearch();
-            //search.GetExactly<ModelFake>(x => x.Id, "bla");
+            //search.GetExactly<ModelFake>(x => x.Id, "bla", FakesUtilities.);
         }
     }
 }

@@ -10,10 +10,11 @@ namespace seving.core.ModelIndex
     public class IndexPersistenceProvider : IIndexPersistenceProvider
     {
         
-        //public async Task<PersistableIndexRow> GetExact(PersistableIndexRow row, IPersistenceProvider provider)
-        //{
-        //    provider.g
-        //}
+        public async Task<Guid?> GetExact(PersistableIndexRow row, IPersistenceProvider provider)
+        {
+            var result=await provider.GetValue<PersistableIndexRow>(row);
+            return result?.StreamRootUid;
+        }
 
         public async Task Persist(Type modelType,Guid streamRootUid, string instanceName, ModelIndexComparisonResult comparisonResult, IPersistenceProvider persistenceProvider)
         {

@@ -1,5 +1,7 @@
-﻿using System;
+﻿using seving.core.Persistence;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
@@ -7,32 +9,29 @@ using System.Threading.Tasks;
 
 namespace seving.core.ModelIndex
 {
-    public class IndexSearch
+    public class IndexSearch : IIndexSearch
     {
-        private IIndexPersistenceProvider provider;
 
         public IndexSearch(IIndexPersistenceProvider provider)
         {
-            this.provider = provider?? throw new ArgumentNullException(nameof(provider));
         }
 
 
-        public void GetExactly<T>(Expression<Func<T, string>> expression, string value)
+        public async Task<Guid?> GetExactly<T>(Expression<Func<T, string?>> expression, string value, IPersistenceProvider provider)
         {
             var searchExp = ParseExpression(expression);
             if (searchExp == null) throw new SevingException("The expression cannot be parsed");
 
-            PersistableIndexRow row=new PersistableIndexRow();
+            PersistableIndexRow row = new PersistableIndexRow();
             row.Constrain = searchExp.ModelInfo.Constrain;
             row.ModelIndexedName = typeof(T).Name;
             row.SearchableProperty = searchExp.ModelInfo.Property.Name;
             row.SearchableValue = value;
-
-
-            
+            var result=await provider.GetValue<PersistableIndexRow>(row);
+            return result?.StreamRootUid;
         }
 
-        public SearchExpressionInfo ParseExpression<T>(Expression<Func<T, string>> expression)
+        public SearchExpressionInfo ParseExpression<T>(Expression<Func<T, string?>> expression)
         {
             var body = expression.Body;
             if (body == null) throw new ArgumentException("The search expression doesnt have body");
@@ -52,8 +51,6 @@ namespace seving.core.ModelIndex
             if (modelIndexAttribute == null) throw new ArgumentException("The property used doesnt have the attribute AggregateModelIndex");
             SearchExpressionInfo searchExpressionInfo = new SearchExpressionInfo(typeof(T), new ModelIndexInfo(property)
             {
-                ComposedKeyGroup = modelIndexAttribute.ComposedKeyGroup,
-                ComposedOrder = modelIndexAttribute.ComposedOrder,
                 Constrain = modelIndexAttribute.Constrain,
                 Property = property
             });

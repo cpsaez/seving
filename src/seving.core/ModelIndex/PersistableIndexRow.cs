@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace seving.core.ModelIndex
 {
-    internal class PersistableIndexRow : IPersistable
+    public class PersistableIndexRow : IPersistable
     {
         public PersistableIndexRow()
         {
@@ -30,7 +30,7 @@ namespace seving.core.ModelIndex
 
         public string InstanceName { get; set; }
 
-        public string Partition => this.ModelIndexedName;
+        public string Partition => this.ModelIndexedName + this.SearchableProperty + "Index";
 
         public ComposedKey Keys
         {
@@ -38,11 +38,11 @@ namespace seving.core.ModelIndex
             {
                 if (this.Constrain)
                 {
-                    return new ComposedKey(this.SearchableProperty, this.SearchableValue);
+                    return new ComposedKey(this.SearchableValue);
                 }
                 else
                 {
-                    return new ComposedKey(this.SearchableProperty, this.SearchableValue, this.StreamRootUid);
+                    return new ComposedKey(this.SearchableValue, this.StreamRootUid);
                 }
             }
         }

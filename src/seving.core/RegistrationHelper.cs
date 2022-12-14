@@ -23,6 +23,7 @@ namespace seving.core
             serviceCollection.AddSingleton<IAggregateModelPersistence, AggregateModelPersistence>();
             serviceCollection.AddSingleton<IStreamRootFactory, StreamRootFactory>();
             serviceCollection.AddSingleton<IIndexPersistenceProvider, IndexPersistenceProvider>();
+            serviceCollection.AddSingleton<IIndexSearch, IndexSearch>();
         }
     }
 }
