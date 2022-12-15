@@ -9,17 +9,14 @@ namespace seving.core.Persistence
 {
     public class EventReader : IEventReader
     {
-        private IPersistenceProvider provider;
-
-        public EventReader(IPersistenceProvider provider)
+        public EventReader()
         {
-            this.provider = provider;
         }
 
-        public async Task<StreamEvent?> ReadLastEvent(Guid streamRootUid)
+        public async Task<StreamEvent?> ReadLastEvent(Guid streamRootUid, IPersistenceProvider persistence)
         {
             var batchQuery = GetBatchQueryForLastEvent(streamRootUid);
-            var result = await this.provider.GetByKeyPattern<StreamEvent>(batchQuery);
+            var result = await persistence.GetByKeyPattern<StreamEvent>(batchQuery);
             return result.Items.FirstOrDefault();
         }
 

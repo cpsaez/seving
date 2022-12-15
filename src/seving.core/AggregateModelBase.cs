@@ -31,7 +31,7 @@ namespace seving.core
         #region IPersistable
 
         public string Partition => this.GetType().Name;
-        public ComposedKey Keys => new ComposedKey(StreamUid,InstanceName, Version);
+        public ComposedKey Keys => new ComposedKey(StreamUid,InstanceName);
 
         [JsonProperty]
         public string? Cas { get; set; }

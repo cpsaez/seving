@@ -21,10 +21,10 @@ namespace seving.core.integratedTests.TestModelDomain.Controllers
 
         public async Task ApplyEvent(ChangeModelEvent @event, StreamRoot streamRoot)
         {
-            var model = await streamRoot.GetModel<TestModel>();
+            var model = await streamRoot.GetModel<TestModel>(@event.InstanceName);
             if (model == null)
             {
-                model=await streamRoot.InitModel<TestModel>(null);
+                model=await streamRoot.InitModel<TestModel>(@event.InstanceName);
                 if (model == null) throw new SevingException("Cannot initialize model");
             }
 

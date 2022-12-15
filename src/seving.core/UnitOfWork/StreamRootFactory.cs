@@ -11,28 +11,29 @@ namespace seving.core.UnitOfWork
     public class StreamRootFactory : IStreamRootFactory
     {
         private readonly IEventReader eventReader;
-        private readonly IAggregateModelPersistence aggPersistence;
         private readonly IIndexPersistenceProvider indexPersistenceProvider;
         private readonly IEnumerable<IStreamRootConsumer> consumers;
+        private readonly IPersistenceProvider persistenceProvider;
 
         public StreamRootFactory(
             IEventReader eventReader,
-            IAggregateModelPersistence aggPersistence,
+            IPersistenceProvider persistenceProvider,
             IIndexPersistenceProvider indexPersistenceProvider,
             IEnumerable<IStreamRootConsumer> consumers)
         {
+
             this.eventReader = eventReader;
-            this.aggPersistence = aggPersistence;
             this.indexPersistenceProvider = indexPersistenceProvider;
             this.consumers = consumers;
+            this.persistenceProvider = persistenceProvider;
         }
 
         public StreamRoot Build(Guid streamRootUid)
         {
             StreamRoot result = new StreamRoot(
                 eventReader, 
-                aggPersistence, 
-                indexPersistenceProvider, 
+                indexPersistenceProvider,
+                persistenceProvider,
                 consumers, 
                 streamRootUid);
             return result;

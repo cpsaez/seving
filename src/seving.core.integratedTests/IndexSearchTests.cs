@@ -106,8 +106,9 @@ namespace seving.core.integratedTests
             using (var trans = await this.provider.BeginScope())
             {
                 var stream = factory.Build(uid);
+                stream.SetTransaction(trans);
                 await stream.Handle(new ChangeModelEvent() { StreamUid = uid, Value1 = value1, Value2 = value2, Value3 = value3 });
-                await stream.Save(trans);
+                await stream.Save();
                 await trans.Commit();
             }
         }
@@ -119,7 +120,7 @@ namespace seving.core.integratedTests
             await stream.Handle(new ItemAdded() { StreamUid = uid, item = new ItemInfo() { Id = 1, Price = 50.5M, Quantity = 1 } });
             await stream.Handle(new ItemAdded() { StreamUid = uid, item = new ItemInfo() { Id = 2, Price = 34, Quantity = 4 } });
             await stream.Handle(new OrderPaid() { StreamUid = uid, PaymentInfo = new PaymentInfo() { PaymentExternalId = paymentUid.ToString() } });
-            await stream.Save(this.provider);
+            await stream.Save();
         }
     }
 }

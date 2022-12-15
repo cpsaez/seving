@@ -20,7 +20,6 @@ namespace seving.core
             serviceCollection.AddSingleton<IPersistenceProvider, SqlServerProvider>();
             serviceCollection.AddSingleton<ITextSerializer, JsonTextSerializer>();
             serviceCollection.AddSingleton<IEventReader, EventReader>();
-            serviceCollection.AddSingleton<IAggregateModelPersistence, AggregateModelPersistence>();
             serviceCollection.AddSingleton<IStreamRootFactory, StreamRootFactory>();
             serviceCollection.AddSingleton<IIndexPersistenceProvider, IndexPersistenceProvider>();
             serviceCollection.AddSingleton<IIndexSearch, IndexSearch>();

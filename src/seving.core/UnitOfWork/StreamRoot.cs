@@ -16,24 +16,25 @@ namespace seving.core.UnitOfWork
         private AggregateModelIndexInspector aggIndexInspector;
         private IEventReader eventReader;
         private IIndexPersistenceProvider indexPersistenceProvider;
+        private IPersistenceProvider persistenceProvider;
         private IStreamRootConsumer[] consumers;
-        private IAggregateModelPersistence aggPersistence;
-
         private bool initialized = false;
         private List<StreamEvent> newEvents = new List<StreamEvent>();
         private FromToTypes models;
+        private IPersistenceProvider? transaction;
 
         public StreamRoot(
-            IEventReader eventReader, 
-            IAggregateModelPersistence aggPersistence,
+            IEventReader eventReader,
             IIndexPersistenceProvider indexPersistenceProvider,
-            IEnumerable<IStreamRootConsumer> consumers, Guid streamRootUid)
+            IPersistenceProvider persistenceProvider,
+            IEnumerable<IStreamRootConsumer> consumers, 
+            Guid streamRootUid)
         {
             this.aggIndexInspector = new AggregateModelIndexInspector();
             this.eventReader = eventReader ?? throw new ArgumentNullException(nameof(eventReader));
             this.indexPersistenceProvider = indexPersistenceProvider;
+            this.persistenceProvider=persistenceProvider??throw new ArgumentNullException(nameof(persistenceProvider));
             this.consumers = consumers.OrderBy(x => x.Priority).ToArray();
-            this.aggPersistence = aggPersistence ?? throw new ArgumentNullException(nameof(aggPersistence));
             this.models = new FromToTypes();
             this.Uid = streamRootUid;
         }
@@ -41,10 +42,22 @@ namespace seving.core.UnitOfWork
         public Guid Uid { get; private set; }
         public int Version { get; private set; }
 
+        public void SetTransaction(IPersistenceProvider provider)
+        {
+            this.transaction = provider;
+        }
+
+        public void ResetTransaction()
+        {
+            this.transaction = null;
+        }
+
+        private IPersistenceProvider persistence => this.transaction ?? this.persistenceProvider;
+
         public async Task Handle(StreamEvent @event)
         {
             await Initialize();
-            if (@event.StreamUid!=this.Uid) { throw new SevingException("The streamroot can only process events from the same streamrootuid"); }
+            if (@event.StreamUid != this.Uid) { throw new SevingException("The streamroot can only process events from the same streamrootuid"); }
 
             @event.Version = this.Version + 1;
             foreach (var consumer in consumers)
@@ -80,7 +93,10 @@ namespace seving.core.UnitOfWork
             // we need to upload first from db
 
             // load from DB
-            T? fromDb = await aggPersistence.GetLast(new T() { StreamUid = this.Uid, InstanceName = instanceName }, this.Version);
+            var template = new T();
+            template.InstanceName= instanceName;
+            template.StreamUid= this.Uid;
+            T? fromDb = await this.persistence.GetValue<T>(template);
 
 
             if (fromDb != null)
@@ -111,6 +127,7 @@ namespace seving.core.UnitOfWork
             T result = new T();
             result.Version = this.Version;
             result.StreamUid = this.Uid;
+            result.InstanceName= instanceName;
             models.SetTo<T>(result, instanceName);
             return result;
         }
@@ -123,17 +140,16 @@ namespace seving.core.UnitOfWork
             // force the load of the model, we need it to know what key we have to remove.
             await this.GetModel<T>(instanceName);
 
-            models.SetTo<T>(null, instanceName); 
+            models.SetTo<T>(null, instanceName);
         }
 
-        public async Task Save(IPersistenceProvider persistenceProvider)
+        public async Task Save()
         {
             // save events
             foreach (var @event in this.newEvents)
             {
-                var result = await persistenceProvider.Insert(@event);
+                var result = await persistence.Insert(@event);
                 CheckResult(result, S.Invariant($"error saving  event {@event.Keys.Key}"));
-
             }
 
             // save models
@@ -149,24 +165,24 @@ namespace seving.core.UnitOfWork
                         target.From.Version = this.Version;
                         if (!Cloner.AreEquals(target.From, target.To))
                         {
-                            var result = await persistenceProvider.Insert(target.To);
+                            var result = await persistence.Update(target.To);
                             CheckResult(result, S.Invariant($"error saving {target.To.Keys.Key}"));
                         }
                     }
                     else if (target.From == null && target.To != null)
                     {
-                        var result = await persistenceProvider.Insert(target.To);
+                        var result = await persistence.Insert(target.To);
                         CheckResult(result, S.Invariant($"error saving {target.To.Keys.Key}"));
                     }
                     else if (target.From != null && target.To == null)
                     {
-                        var result = await persistenceProvider.Delete(target.From);
+                        var result = await persistence.Delete(target.From);
                         CheckResult(result, S.Invariant($"error deleting model {target.From.Keys.Key}"));
                     }
 
                     // update now the indexes
-                    var indexChanges= aggIndexInspector.GetChanges(target.From, target.To);
-                    await this.indexPersistenceProvider.Persist(modelType, this.Uid, instanceName, indexChanges, persistenceProvider);
+                    var indexChanges = aggIndexInspector.GetChanges(target.From, target.To);
+                    await this.indexPersistenceProvider.Persist(modelType, this.Uid, instanceName, indexChanges, persistence);
                 }
             }
         }
@@ -182,7 +198,7 @@ namespace seving.core.UnitOfWork
         {
             if (!initialized)
             {
-                var lastEvent = await eventReader.ReadLastEvent(this.Uid);
+                var lastEvent = await eventReader.ReadLastEvent(this.Uid, this.persistence);
                 if (lastEvent != null)
                 {
                     this.Version = lastEvent.Version;
