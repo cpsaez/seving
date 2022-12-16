@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "seving.core", "seving.core\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "seving.core.tests", "seving.core.tests\seving.core.tests.csproj", "{23ECA185-7DEE-445C-A28B-F3BBBF31F753}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "seving.core.integratedTests", "seving.core.integratedTests\seving.core.integratedTests.csproj", "{0E8BBB30-A92E-4214-8205-4C0C70520DF6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "seving.core.integratedTests", "seving.core.integratedTests\seving.core.integratedTests.csproj", "{0E8BBB30-A92E-4214-8205-4C0C70520DF6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
